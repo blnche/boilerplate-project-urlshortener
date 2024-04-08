@@ -2,17 +2,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
-const boydParser = require('body-parser');
+const bodyParser = require('body-parser');
 const dns = require('dns');
-const dnsPromises = dns.promises;
+const urlParser = require ('url');
 const mongoose = require('mongoose');
 const ShortUrl = require('./models/shortUrl')
 
 const mySecret = process.env['MONGO_URI'];
 mongoose.connect(mySecret, { useNewUrlParser: true, useUnifiedTopology: true });
 
-app.use(boydParser.json());
-app.use(boydParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended: false}));
 
 // Basic Configuration
 const port = process.env.PORT || 3001;
@@ -59,32 +59,22 @@ app.get('/api/hello', function(req, res) {
 app.post('/api/shorturl', async (req, res) => {
 
   const url = req.body.url;
-  const cleanedUrl = url.replace(/^https?:\/\//, '');
+  
+  const dnsLookUp = dns.lookup(urlParser.parse(url).hostname, async (err, address) => {
+    if(!address) {
+      res.json({
+        error: 'invalid url'
+      })
+    } else {
 
-  // console.log('url=>'+url);
-  // console.log('urlFormatted=>'+cleanedUrl);
-
-  // const { address } = await dnsPromises.lookup(cleanedUrl, (err, address, family) => {
-  //   if(err) return res.json({
-  //     error: 'invalid url'
-  //   });
-  // }); //{} allows us to access directly address property from object result
-  // console.log('address => '+address);
-
-  // if (!address) {
+      const newUrl = await ShortUrl.create({original_url: url});
     
-  //   return res.json({
-  //     error: 'invalid url'
-  //   });
-  // } else {
-
-    const newUrl = await ShortUrl.create({original_url: url});
-
-    res.json({
-      original_url: newUrl.original_url,
-      short_url: newUrl.short_url
-    });
-  //}
+      res.json({
+        original_url: newUrl.original_url,
+        short_url: newUrl.short_url
+      });
+    }
+  });
 });
 
 app.get('/api/shorturl/:shorturl', async (req, res) => {
