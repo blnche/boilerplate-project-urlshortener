@@ -42,7 +42,7 @@ app.post('/api/shorturl', (req, res) => {
     } else {
       res.json({
         original_url: url,
-        short_url: ''
+        short_url: 1
       });
     }
   });
