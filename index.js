@@ -3,7 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const boydParser = require('body-parser');
-const dns = require('node:dns');
+const dns = require('dns');
+const dnsPromises = dns.promises;
+const mongoose = require('mongoose');
+const ShortUrl = require('./models/shortUrl')
+
+const mySecret = process.env['MONGO_URI'];
+mongoose.connect(mySecret, { useNewUrlParser: true, useUnifiedTopology: true });
 
 app.use(boydParser.json());
 app.use(boydParser.urlencoded({extended: false}));
@@ -24,36 +30,71 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-app.post('/api/shorturl', (req, res) => {
-  // const urlValidator = /(((http|https):\/\/)|(\/)|(..\/))(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/;
-  // console.log(req.body.url);
+// const createAndSaveUrl = (url) => {
+
+//   let newUrl = new Url({
+//     original_url: url,
+//     //short_url: _id use _id from mongogoose
+//   });
+
+//   newUrl.save()
+//     .then(data => {
+      
+//       let short_url = data.id;
+
+//       Url.findByIdAndUpdate({_id: data._id}, {short_url: short_url}, {new: true})
+//         .then(updatedData => {
+//           console.log('updated data => '+updatedData);
+//           return updatedData;
+//         })
+//         .catch (err => {
+//           console.log(err);
+//         })
+//     })
+//     .catch(err => {
+//       console.log(err);
+//     })
+// }
+
+app.post('/api/shorturl', async (req, res) => {
 
   const url = req.body.url;
-
   const cleanedUrl = url.replace(/^https?:\/\//, '');
 
-  dns.lookup(cleanedUrl, (err, address, family) => {
-    console.log('address: %j family: IPv%s', address, family);
+  // console.log('url=>'+url);
+  // console.log('urlFormatted=>'+cleanedUrl);
 
-    if (!address) {
-      res.json({
-        error: 'invalid url'
-      })
-    } else {
-      res.json({
-        original_url: url,
-        short_url: 1
-      });
-    }
-  });
+  // const { address } = await dnsPromises.lookup(cleanedUrl, (err, address, family) => {
+  //   if(err) return res.json({
+  //     error: 'invalid url'
+  //   });
+  // }); //{} allows us to access directly address property from object result
+  // console.log('address => '+address);
 
-  console.log('headers '+JSON.stringify(req.headers, null, 2))
-  console.log('body '+JSON.stringify(req.body, null, 2))
+  // if (!address) {
+    
+  //   return res.json({
+  //     error: 'invalid url'
+  //   });
+  // } else {
 
-  //next();
-//}, (req, res) => {
+    const newUrl = await ShortUrl.create({original_url: url});
 
+    res.json({
+      original_url: newUrl.original_url,
+      short_url: newUrl.short_url
+    });
+  //}
 });
+
+app.get('/api/shorturl/:shorturl', async (req, res) => {
+  console.log(req.params.shorturl);
+  const url = await ShortUrl.findOne({short_url: req.params.shorturl});
+
+  console.log(url);
+
+  res.redirect(url.original_url);
+})
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
